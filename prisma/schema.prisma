@@ -1,0 +1,363 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                    String   @id @default(uuid())
+
+  email                 String   @unique
+
+  password              String?
+
+  firstName             String?
+  lastName              String?
+
+  role                  Role     @default(PLANNER)
+
+  provider              String   @default("LOCAL")
+  providerId            String?
+  avatar                String?
+
+  isVerified            Boolean  @default(false)
+  isActive              Boolean  @default(true)
+  termsAcceptedAt       DateTime?
+
+  lastLogin             DateTime?
+
+  passwordResetToken    String?
+  passwordResetExpires  DateTime?
+  emailVerificationToken   String?
+  emailVerificationExpires DateTime?
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  vendorProfile  VendorProfile?
+  plannerProfile PlannerProfile?
+
+  sentEnquiries      Enquiry[] @relation("SentEnquiries")
+  receivedEnquiries  Enquiry[] @relation("ReceivedEnquiries")
+  reviews            Review[] @relation("PlannerReviews")
+  vendorReviews      Review[] @relation("VendorReviews")
+  refreshTokens      RefreshToken[]
+  plannerChatRooms   ChatRoom[] @relation("PlannerChatRooms")
+  vendorChatRooms    ChatRoom[] @relation("VendorChatRooms")
+  sentChatMessages   ChatMessage[] @relation("SentChatMessages")
+  plannedEvents      Event[]   @relation("PlannerEvents")
+
+  @@unique([provider, providerId])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+model VendorProfile {
+  id                String          @id @default(uuid())
+  userId            String          @unique
+  businessName      String
+  category          String
+  description       String?
+  location          String
+  priceRange        String?
+  availability      Json?           @default("{}")
+  profileImage      String?
+  isPublished       Boolean         @default(true)
+  responseRate      Decimal?        @default(0)
+  responseTime      Int?            @default(0)
+  totalEnquiries    Int?            @default(0)
+  totalBookings     Int?            @default(0)
+  averageRating     Decimal?        @default(0)
+  totalReviews      Int?            @default(0)
+  viewCount         Int?            @default(0)
+  enquiryCount      Int?            @default(0)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  // Relations
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  enquiries         Enquiry[]
+  reviews           Review[]
+  portfolioItems    PortfolioItem[]
+
+  @@map("vendor_profiles")
+}
+
+enum PortfolioItemMediaType {
+  IMAGE
+  VIDEO
+}
+
+model PortfolioItem {
+  id              String              @id @default(uuid())
+  vendorProfileId String
+  mediaType       PortfolioItemMediaType @default(IMAGE)
+  url             String
+  thumbnailUrl    String?
+  caption         String?
+  description     String?
+  priceRange      String?
+  sortOrder       Int                 @default(0)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  vendorProfile   VendorProfile @relation(fields: [vendorProfileId], references: [id], onDelete: Cascade)
+
+  @@index([vendorProfileId, sortOrder])
+  @@map("portfolio_items")
+}
+
+model PlannerProfile {
+  id                  String   @id @default(uuid())
+  userId              String   @unique
+  phone               String?
+  location            String?
+  bio                 String?
+  preferredEventTypes String[] @default([])
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("planner_profiles")
+}
+
+model Enquiry {
+  id                String          @id @default(uuid())
+  plannerId         String
+  vendorId          String
+  vendorProfileId   String
+  eventType         String
+  eventDate         DateTime
+  eventLocation     String
+  guestCount        Int?
+  budget            Decimal?
+  specialNotes      String?
+  status            EnquiryStatus   @default(NEW)
+  responseMessage   String?
+  respondedAt       DateTime?
+  isBookingRequest  Boolean         @default(false)
+  bookingRequestedAt DateTime?
+  bookingRespondedAt DateTime?
+  bookedAt          DateTime?
+  isDuplicate       Boolean         @default(false)
+  originalEnquiryId String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  // Relations
+  planner           User            @relation("SentEnquiries", fields: [plannerId], references: [id])
+  vendor            User            @relation("ReceivedEnquiries", fields: [vendorId], references: [id])
+  vendorProfile     VendorProfile   @relation(fields: [vendorProfileId], references: [id])
+  originalEnquiry   Enquiry?        @relation("OriginalEnquiry", fields: [originalEnquiryId], references: [id])
+  duplicateEnquiries Enquiry[]      @relation("OriginalEnquiry")
+  review            Review?
+  chatRoom          ChatRoom?
+
+  @@unique([plannerId, vendorId, eventType, eventDate], map: "enquiries_plannerId_vendorId_eventType_eventDate_key")
+  @@map("enquiries")
+}
+
+model ChatRoom {
+  id        String        @id @default(uuid())
+  plannerId String
+  vendorId  String
+  enquiryId String        @unique
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  planner   User          @relation("PlannerChatRooms", fields: [plannerId], references: [id], onDelete: Cascade)
+  vendor    User          @relation("VendorChatRooms", fields: [vendorId], references: [id], onDelete: Cascade)
+  enquiry   Enquiry       @relation(fields: [enquiryId], references: [id], onDelete: Cascade)
+  messages  ChatMessage[]
+
+  @@map("chat_rooms")
+}
+
+model ChatMessage {
+  id        String   @id @default(uuid())
+  roomId    String
+  senderId  String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  room      ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sender    User     @relation("SentChatMessages", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([roomId, createdAt])
+  @@map("chat_messages")
+}
+
+model Review {
+  id                String          @id @default(uuid())
+  enquiryId         String          @unique
+  plannerId         String
+  vendorId          String
+  vendorProfileId   String
+  rating            Int
+  review            String
+  isEdited          Boolean         @default(false)
+  editedAt          DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  // Relations
+  enquiry           Enquiry         @relation(fields: [enquiryId], references: [id])
+  planner           User            @relation("PlannerReviews", fields: [plannerId], references: [id])
+  vendor            User            @relation("VendorReviews", fields: [vendorId], references: [id])
+  vendorProfile     VendorProfile   @relation(fields: [vendorProfileId], references: [id])
+
+  @@map("reviews")
+}
+
+model Event {
+  id              String        @id @default(uuid())
+  name            String
+  description     String?
+  eventType       String
+  eventDate       DateTime
+  location        String
+  guestCount      Int
+  plannerId       String
+  status          EventStatus   @default(DRAFT)
+  readinessScore  Int           @default(0)
+  
+  // Maxify linkage
+  maxifyEventId   String?       @unique
+  maxifyEventUrl  String?
+  maxifySyncedAt  DateTime?
+  maxifyMode      String        @default("demo")
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  // Relations
+  planner         User               @relation("PlannerEvents", fields: [plannerId], references: [id])
+  eventVendors    EventVendor[]
+  tickets         Ticket[]
+  checkIns        CheckIn[]
+  analytics       EventAnalytics?
+
+  @@index([plannerId])
+  @@index([status])
+  @@map("events")
+}
+
+model EventVendor {
+  id          String   @id @default(uuid())
+  eventId     String
+  vendorId    String
+  enquiryId   String?  @unique
+  status      EventVendorStatus @default(INVITED)
+  role        String?
+  createdAt   DateTime @default(now())
+
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, vendorId])
+  @@index([eventId])
+  @@index([vendorId])
+  @@map("event_vendors")
+}
+
+model Ticket {
+  id             String      @id @default(uuid())
+  eventId        String
+  attendeeId     String?
+  ticketType     String
+  ticketCode     String      @unique
+  status         TicketStatus @default(ACTIVE)
+  purchaserName  String
+  purchaserEmail String
+  purchaseDate   DateTime    @default(now())
+  checkedInAt    DateTime?
+
+  event          Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  checkIns       CheckIn[]
+
+  @@index([eventId])
+  @@index([ticketCode])
+  @@map("tickets")
+}
+
+model CheckIn {
+  id        String      @id @default(uuid())
+  ticketId  String
+  eventId   String
+  timestamp DateTime    @default(now())
+  method    CheckInMethod @default(QR_SCAN)
+
+  ticket    Ticket      @relation(fields: [ticketId], references: [id])
+  event     Event       @relation(fields: [eventId], references: [id])
+
+  @@index([eventId, timestamp])
+  @@map("check_ins")
+}
+
+model EventAnalytics {
+  id              String   @id @default(uuid())
+  eventId         String   @unique
+  totalTickets    Int      @default(0)
+  totalCheckedIn  Int      @default(0)
+  attendanceRate  Float    @default(0)
+  generatedAt     DateTime @default(now())
+
+  event           Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@map("event_analytics")
+}
+
+enum EventStatus {
+  DRAFT
+  READY
+  LAUNCHED
+  COMPLETED
+  CANCELLED
+}
+
+enum EventVendorStatus {
+  INVITED
+  CONFIRMED
+  DECLINED
+}
+
+enum TicketStatus {
+  ACTIVE
+  USED
+  CANCELLED
+}
+
+enum CheckInMethod {
+  QR_SCAN
+  MANUAL
+}
+
+enum Role {
+  PLANNER
+  VENDOR
+  ADMIN
+}
+
+enum EnquiryStatus {
+  NEW
+  RESPONDED
+  DECLINED
+  BOOKED
+}

@@ -1,0 +1,22 @@
+import express from 'express';
+import { signup, login, getMe, uploadAvatar, forgotPassword, resetPassword, refresh, logout } from '../controllers/authController.js';
+import { protect } from '../middleware/auth.js';
+import upload from '../middleware/upload.js';
+import { validate, authValidation } from '../middleware/validation.js';
+
+const router = express.Router();
+
+// `/register` is retained for the deployed web client. New clients should use
+// the clearer `/signup` endpoint; both use the exact same validation and flow.
+router.post(['/signup', '/register'], validate(authValidation.signup), signup);
+router.post('/login', validate(authValidation.login), login);
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
+// Google sign-in is temporarily disabled
+// router.post('/google', googleLogin);
+router.post('/refresh', refresh);
+router.post('/logout', logout);
+router.get('/me', protect, getMe);
+router.post('/avatar', protect, upload.any(), uploadAvatar);
+
+export default router;

@@ -1,3 +1,13 @@
+node_modules
+# Keep environment variables out of version control
+.env
+yarn.lock
+/src/generated/prisma
+readme.md
+docs
+.vscode
+postman
+
 # Logs
 logs
 *.log
@@ -31,17 +41,15 @@ coverage
 # Bower dependency directory (https://bower.io/)
 bower_components
 
-# node-waf configuration
-.lock-wscript
+# webpack cache
+*.cache
 
-# Compiled binary addons (https://nodejs.org/api/addons.html)
+# Compiled binary addons
 build/Release
 
 # Dependency directories
 node_modules/
 jspm_packages/
-
-# Snowpack dependency directory (https://snowpack.dev/)
 web_modules/
 
 # TypeScript cache
@@ -85,17 +93,10 @@ dist
 
 # Gatsby files
 .cache/
-# Comment in the public line in if your project uses Gatsby and not Next.js
-# https://nextjs.org/blog/next-9-1#public-directory-support
 # public
+# .vuepress/dist
 
-# vuepress build output
-.vuepress/dist
-
-# vuepress v2.x temp directory
-.temp
-
-# Sveltekit cache directory
+# SvelteKit cache directory
 .svelte-kit/
 
 # vitepress build output
@@ -118,9 +119,6 @@ dist
 
 # Firebase cache directory
 .firebase/
-
-# TernJS port file
-.tern-port
 
 # Stores VSCode versions used for testing VSCode extensions
 .vscode-test
